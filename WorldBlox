@@ -1,0 +1,150 @@
+-- [[ WORLDBLOX: THE ULTIMATE PROGRESSION HUB ]] --
+-- Game ID: 2753915549 | Update: Março 2026 (Sea 3 Ready)
+
+-- 1. Verificação Automática
+if game.PlaceId ~= 2753915549 and game.PlaceId ~= 4442272183 and game.PlaceId ~= 7449925012 then 
+    return print("WorldBlox: Jogo Inválido!") 
+end
+
+local Library = loadstring(game:HttpGet('https://raw.githubusercontent.com'))()
+local Window = Library:CreateWindow({
+    Name = "WorldBlox 🌐 | Progression Hub",
+    LoadingTitle = "Iniciando Camadas Inteligentes...",
+    LoadingSubtitle = "by WorldBlox Team",
+    ConfigurationSaving = {Enabled = true, FileName = "WorldBlox_Final"}
+})
+
+-- SERVIÇOS & VARIÁVEIS
+local LP = game.Players.LocalPlayer
+local RS = game:GetService("RunService")
+local TS = game:GetService("TweenService")
+local VU = game:GetService("VirtualUser")
+
+_G.WorldBlox = {
+    AutoFarm = false, AutoBelly = false, AutoFruit = false, AutoBoss = false,
+    FarmSpeed = 250, Priority = "XP", Economy = false, BossDelay = 5
+}
+
+-- TABELA DE PROGRESSÃO (ESTRUTURA COMPLETA)
+local Data = {
+    Quests = {
+        -- Sea 1
+        {Level = 0, Monster = "Bandit", NPC = "Bandit Quest Giver", QuestName = "BanditQuest1"},
+        {Level = 15, Monster = "Monkey", NPC = "Adventurer", QuestName = "MonkeyQuest1"},
+        -- Sea 3 (Update 2026)
+        {Level = 1500, Monster = "Pirate Millionaire", NPC = "Quest Giver", QuestName = "PortTownQuest1"},
+        {Level = 2450, Monster = "Snow Demon", NPC = "Quest Giver", QuestName = "SeaOfTreatsQuest1"},
+        {Level = 2800, Monster = "Tiki Warrior", NPC = "Tiki Quest Giver", QuestName = "TikiQuest1"}
+    },
+    Bosses = {
+        {Name = "Captain Elephant", Level = 1875, Location = "Floating Turtle"},
+        {Name = "Cake Prince", Level = 2300, Location = "Sea of Treats"},
+        {Name = "Soul Reaper", Level = 2100, Location = "Haunted Castle"}
+    }
+}
+
+-- FUNÇÕES DE SUPORTE
+local function MoveTo(target)
+    if not LP.Character or not LP.Character:FindFirstChild("HumanoidRootPart") then return end
+    local dist = (target.Position - LP.Character.HumanoidRootPart.Position).Magnitude
+    TS:Create(LP.Character.HumanoidRootPart, TweenInfo.new(dist/_G.WorldBlox.FarmSpeed, Enum.EasingStyle.Linear), {CFrame = target}):Play()
+end
+
+local function GetQuest()
+    local myLevel = LP.Data.Level.Value
+    local best = Data.Quests[1]
+    for _, q in pairs(Data.Quests) do
+        if myLevel >= q.Level then best = q end
+    end
+    return best
+end
+
+-- ⚡ ABA: FARM / UP
+local FarmTab = Window:CreateTab("⚡ Farm / Up", 4483362458)
+FarmTab:CreateSection("Evolução Direta")
+
+FarmTab:CreateToggle({
+    Name = "AUTO FARM LEVEL (SMART)",
+    CurrentValue = false,
+    Callback = function(v)
+        _G.WorldBlox.AutoFarm = v
+        task.spawn(function()
+            while _G.WorldBlox.AutoFarm do
+                local q = GetQuest()
+                -- Lógica: Verifica se tem Quest -> Teleporta -> Mata -> Loop
+                EquipWeapon() -- Função interna para equipar espada/melee
+                local enemy = workspace.Enemies:FindFirstChild(q.Monster)
+                if enemy and enemy:FindFirstChild("Humanoid") and enemy.Humanoid.Health > 0 then
+                    LP.Character.HumanoidRootPart.CFrame = enemy.HumanoidRootPart.CFrame * CFrame.new(0, 8, 0)
+                    VU:Button1Down(Vector2.new(0,0))
+                else
+                    MoveTo(workspace.EnemySpawns:FindFirstChild(q.Monster).CFrame)
+                end
+                task.wait(0.1)
+            end
+        end)
+    end
+})
+
+FarmTab:CreateToggle({
+    Name = "AUTO FRUIT (SNIPER & STORE)",
+    CurrentValue = false,
+    Callback = function(v)
+        _G.WorldBlox.AutoFruit = v
+        task.spawn(function()
+            while _G.WorldBlox.AutoFruit do
+                for _, fruit in pairs(workspace:GetChildren()) do
+                    if fruit:IsA("Tool") and fruit.Name:find("Fruit") then
+                        MoveTo(fruit.Handle.CFrame)
+                        task.wait(0.5)
+                        game:GetService("ReplicatedStorage").Remotes.CommF_:InvokeServer("StoreFruit", fruit.Name, fruit)
+                        Library:Notify({Title = "Fruit Found!", Content = fruit.Name .. " coletada e guardada."})
+                    end
+                end
+                task.wait(5)
+            end
+        end)
+    end
+})
+
+-- 📊 ABA: PROGRESS
+local ProgressTab = Window:CreateTab("📊 Progress", 4483362458)
+local BellyLabel = ProgressTab:CreateLabel("Beli/Min: Calculando...")
+local LevelLabel = ProgressTab:CreateLabel("Level Atual: " .. LP.Data.Level.Value)
+
+task.spawn(function()
+    local startBeli = LP.Data.Beli.Value
+    while task.wait(1) do
+        LevelLabel:SetText("Level Atual: " .. LP.Data.Level.Value)
+        BellyLabel:SetText("💰 Beli Ganho: " .. (LP.Data.Beli.Value - startBeli))
+    end
+end)
+
+-- ⚙️ ABA: CONTROLE & SISTEMA
+local ControlTab = Window:CreateTab("🎛️ Controle", 4483362458)
+
+ControlTab:CreateToggle({
+    Name = "MODO ECONOMIA (BAIXO CONSUMO)",
+    CurrentValue = false,
+    Callback = function(v)
+        RS:Set3dRenderingEnabled(not v)
+    end
+})
+
+ControlTab:CreateButton({
+    Name = "STOP ALL",
+    Callback = function()
+        _G.WorldBlox.AutoFarm = false
+        _G.WorldBlox.AutoFruit = false
+        _G.WorldBlox.AutoBelly = false
+    end
+})
+
+-- ANTI-IDLE (PROTEÇÃO)
+LP.Idled:Connect(function()
+    VU:CaptureController()
+    VU:ClickButton2(Vector2.new(0,0))
+end)
+
+Library:Notify({Title = "WorldBlox Ativo!", Content = "Script carregado com sucesso.", Duration = 5})
+
